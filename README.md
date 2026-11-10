@@ -1,125 +1,196 @@
 # Vector Databases for GenAI
 
-> Practical notebook examples for building semantic search systems with ChromaDB and FAISS using OpenAI embeddings.
+> Three practical Jupyter Notebook examples for building semantic-search and Retrieval-Augmented Generation (RAG) workflows with ChromaDB, FAISS, and Pinecone.
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![LangChain](https://img.shields.io/badge/LangChain-RAG-1C3C3C?logo=chainlink&logoColor=white)
-![ChromaDB](https://img.shields.io/badge/ChromaDB-vector%20store-FF6B35)
+![OpenAI](https://img.shields.io/badge/OpenAI-embeddings-412991?logo=openai&logoColor=white)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-local%20vector%20store-FF6B35)
 ![FAISS](https://img.shields.io/badge/FAISS-similarity%20search-0467DF)
-![OpenAI](https://img.shields.io/badge/OpenAI-embeddings%20%2B%20LLM-412991?logo=openai&logoColor=white)
+![Pinecone](https://img.shields.io/badge/Pinecone-cloud%20vector%20database-00A98F)
 
 ## Overview
 
-This project contains two complementary vector-search implementations:
+This project compares three common approaches to vector search:
 
-- **ChromaDB + LangChain:** an end-to-end Retrieval-Augmented Generation (RAG) workflow that loads articles, persists embeddings, retrieves relevant context, and generates answers with source documents.
-- **FAISS + OpenAI:** a focused semantic-search example that embeds text, normalizes vectors for cosine similarity, and searches a FAISS index.
+| Notebook | Vector database | Embedding approach | Main use case |
+|---|---|---|---|
+| [`ChoromaDB_Vector_Database.ipynb`](./ChoromaDB_Vector_Database.ipynb) | ChromaDB | OpenAI embeddings | Local RAG with LangChain |
+| [`FAISS_Database.ipynb`](./FAISS_Database.ipynb) | FAISS | OpenAI embeddings | Lightweight in-memory similarity search |
+| [`Pinecone_Cloud_Database.ipynb`](./Pinecone_Cloud_Database.ipynb) | Pinecone | Pinecone integrated embedding | Managed cloud vector search |
 
-See [`ChoromaDB_Vector_Database.ipynb`](./ChoromaDB_Vector_Database.ipynb) and [`FAISS_Database.ipynb`](./FAISS_Database.ipynb) for the complete examples.
+The notebooks are independent learning examples. Run the one that matches the storage, deployment, and retrieval model you want to explore.
 
 ## Architecture
 
-The following diagram represents the implemented RAG pipeline:
+The project’s reference architecture illustrates the core RAG lifecycle:
 
 ![RAG architecture](<./images/Screenshot%202026-11-09%20162243.png>)
 
-### Request flow
+### Common retrieval lifecycle
 
 ```text
-Text documents
+Raw documents
       |
       v
-DirectoryLoader + TextLoader
+Extract and prepare text
       |
       v
-RecursiveCharacterTextSplitter
-(chunk_size=1000, chunk_overlap=200)
+Create chunks or records
       |
       v
-OpenAIEmbeddings
+Generate embeddings
       |
-      v
-ChromaDB (persisted locally in ./db)
-      |
-      v
-Retriever (top-k relevant chunks)
-      |
-      v
-RetrievalQA + OpenAI LLM
-      |
-      v
-Answer + source document paths
+      +--------------------+--------------------+
+      |                    |                    |
+      v                    v                    v
+   ChromaDB              FAISS              Pinecone
+   Local store         In-memory index      Cloud index
+      |                    |                    |
+      +--------------------+--------------------+
+                           |
+                           v
+                 Retrieve relevant context
+                           |
+                           v
+                    Answer or inspect
 ```
 
-## Implementations
+The included architecture image focuses on the ChromaDB RAG flow: documents are extracted, chunked, embedded, stored in a vector database, retrieved for a question, and passed to an LLM.
 
-### ChromaDB RAG pipeline
+## Notebook implementations
 
-The ChromaDB notebook loads `.txt` articles, splits them into 1,000-character chunks with 200-character overlap, creates OpenAI embeddings, and persists them in a local `db/` directory. A LangChain retriever then supplies relevant chunks to a `RetrievalQA` chain, which returns an answer and its source documents.
+### 1. ChromaDB + LangChain RAG
 
-### FAISS semantic search
+[`ChoromaDB_Vector_Database.ipynb`](./ChoromaDB_Vector_Database.ipynb) demonstrates a complete local RAG pipeline:
 
-The FAISS notebook demonstrates a lightweight in-memory vector index:
+1. Download and extract a sample article archive.
+2. Load `.txt` files with `DirectoryLoader` and `TextLoader`.
+3. Split documents with `RecursiveCharacterTextSplitter`.
+4. Use 1,000-character chunks with 200-character overlap.
+5. Generate OpenAI embeddings.
+6. Persist vectors locally in the `db/` directory.
+7. Retrieve relevant chunks with a LangChain retriever.
+8. Use `RetrievalQA` to generate an answer and return source documents.
 
-1. Define example text documents.
-2. Generate OpenAI embeddings with `text-embedding-ada-002`.
+The notebook demonstrates questions such as:
+
+```python
+query = "How much money did Microsoft raise?"
+query = "What is the news about Pando?"
+```
+
+### 2. FAISS + OpenAI embeddings
+
+[`FAISS_Database.ipynb`](./FAISS_Database.ipynb) demonstrates a small, fast, in-memory similarity-search index:
+
+1. Define a collection of example texts.
+2. Generate embeddings with OpenAI’s `text-embedding-ada-002` model.
 3. Normalize vectors for cosine similarity.
-4. Add vectors to a `faiss.IndexFlatIP` index.
-5. Embed a query and retrieve the top two matching texts.
+4. Create a `faiss.IndexFlatIP` index.
+5. Add the vectors to the index.
+6. Embed a query and retrieve the top two matches.
+7. Use `text_id_map` to resolve vector IDs back to original text.
 
-FAISS is used here as the similarity-search engine, while the original text is kept in an `text_id_map` for lookup after searching.
+Because normalized vectors are searched with inner product, `IndexFlatIP` behaves as a cosine-similarity index in this example.
+
+### 3. Pinecone Cloud with integrated embeddings
+
+[`Pinecone_Cloud_Database.ipynb`](./Pinecone_Cloud_Database.ipynb) demonstrates managed cloud vector search:
+
+1. Install the Pinecone Python SDK.
+2. Initialize a Pinecone client with `PINECONE_API_KEY`.
+3. Create a dense index named `dense-index` if it does not already exist.
+4. Configure Pinecone’s integrated `llama-text-embed-v2` embedding model.
+5. Upsert text records and metadata into the `example-namespace` namespace.
+6. Inspect index statistics.
+7. Search using a natural-language query such as `Famous historical structures and monuments`.
+8. Delete the index when cleanup is required.
+
+Pinecone handles the embedding and vector indexing through its cloud service, so this notebook does not manually create local embedding arrays.
 
 ## Features
 
-- **Semantic search** over document content rather than keyword-only matching.
-- **Persistent vector storage** using ChromaDB and an in-memory FAISS alternative.
-- **Configurable retrieval**, including a demonstrated `k=2` result limit in both examples.
-- **Source-aware RAG answers** through `return_source_documents=True`.
-- **Cosine-similarity search** using normalized embeddings and FAISS inner product.
-- **Notebook-first learning experience** that makes each RAG step inspectable.
-- **Reusable document ingestion and embedding patterns** for additional content.
+- Compare local, in-memory, and managed cloud vector databases.
+- Perform semantic search using natural-language queries.
+- Generate OpenAI embeddings for ChromaDB and FAISS.
+- Use Pinecone integrated embeddings for cloud indexing.
+- Persist a local ChromaDB collection.
+- Retrieve top-k similar results with FAISS.
+- Store records and metadata in a Pinecone namespace.
+- Explore RAG answers with source documents.
+- Inspect index statistics and clean up resources.
 
 ## Project structure
 
 ```text
 .
-├── ChoromaDB_Vector_Database.ipynb  # End-to-end RAG implementation
-├── FAISS_Database.ipynb             # FAISS semantic-search implementation
+├── ChoromaDB_Vector_Database.ipynb  # Local ChromaDB + LangChain RAG
+├── FAISS_Database.ipynb             # In-memory FAISS similarity search
+├── Pinecone_Cloud_Database.ipynb    # Managed Pinecone cloud search
 ├── Vector_Database_GENAI.pdf        # Project/reference material
 ├── images/
-│   └── Screenshot 2026-11-09 162243.png  # Architecture diagram
+│   └── Screenshot 2026-11-09 162243.png  # Reference architecture
 └── README.md
 ```
 
-> The notebook downloads a sample article archive into `new_articles/` and creates the local `db/` directory when its cells are executed. These generated directories are not part of the repository snapshot.
+Generated resources are created only when notebooks run:
+
+- `new_articles/` and `new_articles.zip` for the ChromaDB example
+- `db/` for the persisted ChromaDB collection
+- A remote `dense-index` and namespace for the Pinecone example
 
 ## Requirements
 
 - Python 3.10 or newer
 - Jupyter Notebook, JupyterLab, or Google Colab
-- An OpenAI API key
-- A C++ compiler/runtime compatible with the selected `faiss-cpu` wheel, if installing FAISS locally
-- Internet access for package installation, sample-data download, embeddings, and LLM requests
+- Internet access
+- An OpenAI API key for the ChromaDB and FAISS notebooks
+- A Pinecone API key for the Pinecone notebook
+- A compatible `faiss-cpu` wheel for the local environment
 
 ## Installation
 
-Install the libraries used by the notebook:
+### ChromaDB notebook
 
 ```bash
-pip install chromadb openai langchain langchain-community tiktoken faiss-cpu numpy
+pip install chromadb openai langchain langchain-community tiktoken
 ```
 
-The FAISS notebook uses the legacy OpenAI Python client, so its first cells install:
+### FAISS notebook
+
+The notebook uses the legacy OpenAI Python client API:
 
 ```bash
 pip install faiss-cpu numpy openai==0.28
 ```
 
-If you are using Google Colab, run the installation cells at the beginning of the notebook you want to use.
+### Pinecone notebook
 
-## Configuration
+```bash
+pip install pinecone
+```
 
-Set the API key in the environment before creating embeddings or querying the model:
+Run the installation cells at the beginning of the notebook you want to use. Pin versions in a dependency file before using these examples in a production application.
+
+## Configuration and secrets
+
+Never put real API keys directly in a notebook or commit them to Git. Configure credentials through environment variables.
+
+### Windows PowerShell
+
+```powershell
+$env:OPENAI_API_KEY = "your-openai-api-key"
+$env:PINECONE_API_KEY = "your-pinecone-api-key"
+```
+
+### macOS/Linux
+
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+export PINECONE_API_KEY="your-pinecone-api-key"
+```
+
+The OpenAI notebooks read the key like this:
 
 ```python
 import os
@@ -128,37 +199,33 @@ import openai
 openai.api_key = os.environ["OPENAI_API_KEY"]
 ```
 
-For local development, prefer an environment variable instead of placing a real key in a notebook:
+The Pinecone notebook reads its key like this:
 
-```bash
-# Windows PowerShell
-$env:OPENAI_API_KEY = "your-api-key"
+```python
+import os
+from pinecone import Pinecone
 
-# macOS/Linux
-export OPENAI_API_KEY="your-api-key"
+pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
 ```
 
-Never commit API keys, generated credentials, or the ChromaDB persistence directory to source control.
+If a key has ever been committed, revoke it immediately, remove it from the commit history, and create a replacement key.
 
 ## Running the notebooks
 
-1. Open either [`ChoromaDB_Vector_Database.ipynb`](./ChoromaDB_Vector_Database.ipynb) or [`FAISS_Database.ipynb`](./FAISS_Database.ipynb).
-2. Install the dependencies.
-3. Configure `OPENAI_API_KEY`.
-4. Run the cells from top to bottom.
+1. Clone or download this repository.
+2. Open one of the three notebooks.
+3. Install that notebook’s dependencies.
+4. Set the required environment variables.
+5. Run the cells from top to bottom.
+6. Modify the sample query or records to experiment with retrieval.
 
-For the ChromaDB notebook, ask questions using the `qa_chain` examples near the end of the notebook. For the FAISS notebook, change the `query` value and run the search cell to retrieve the most similar texts.
+### ChromaDB query
 
-The notebook currently uses these example questions:
+The ChromaDB notebook creates a `qa_chain` and returns an answer with source documents.
 
-```python
-query = "How much money did Microsoft raise?"
-query = "What is the news about Pando?"
-```
+### FAISS query
 
-The response includes the generated answer and the paths of the source documents used to produce it.
-
-The FAISS example returns matching text and similarity scores:
+Change the query and top-k value:
 
 ```python
 query = "What is FAISS?"
@@ -166,87 +233,51 @@ k = 2
 distances, indices = index.search(query_vector.reshape(1, -1), k)
 ```
 
-## Core implementation
+### Pinecone query
 
-### 1. Load and split documents
-
-```python
-from langchain.document_loaders import DirectoryLoader, TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-
-loader = DirectoryLoader(
-    "/content/new_articles/",
-    glob="./*.txt",
-    loader_cls=TextLoader,
-)
-documents = loader.load()
-
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=200,
-)
-chunks = splitter.split_documents(documents)
-```
-
-### 2. Create and persist the vector database
+Search the dense index through the configured namespace:
 
 ```python
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Chroma
+query = "Famous historical structures and monuments"
 
-embedding = OpenAIEmbeddings()
-
-vectordb = Chroma.from_documents(
-    documents=chunks,
-    embedding=embedding,
-    persist_directory="db",
-)
-vectordb.persist()
-```
-
-### 3. Retrieve context and answer questions
-
-```python
-from langchain.chains import RetrievalQA
-from langchain.llms import OpenAI
-
-vectordb = Chroma(
-    persist_directory="db",
-    embedding_function=embedding,
-)
-
-retriever = vectordb.as_retriever(search_kwargs={"k": 2})
-
-qa_chain = RetrievalQA.from_chain_type(
-    llm=OpenAI(),
-    chain_type="stuff",
-    retriever=retriever,
-    return_source_documents=True,
+results = dense_index.search(
+    namespace="example-namespace",
+    query={"inputs": {"text": query}, "top_k": 5},
 )
 ```
 
-## Data lifecycle
+## Local and cloud cleanup
 
-The notebook includes a cleanup step that deletes the local ChromaDB collection and removes the `db/` directory. Run it only when you want to rebuild the index:
+The ChromaDB notebook includes cleanup logic for its local collection:
 
 ```python
 vectordb.delete_collection()
 vectordb.persist()
 ```
 
-## Limitations and next steps
+The Pinecone notebook includes cleanup logic for the remote index:
 
-These are educational notebook implementations, not production services. Potential improvements include:
+```python
+pc.delete_index(index_name)
+```
 
-- Pinning dependency versions in a `requirements.txt` or `pyproject.toml`.
-- Migrating deprecated LangChain imports to the current package layout.
+Run Pinecone cleanup only when the cloud index is no longer needed. Deleting it removes the remote index and its stored records.
+
+## Limitations and future improvements
+
+These notebooks are educational examples rather than production services. Before production use, consider:
+
+- Pinning all dependencies and documenting tested Python versions.
+- Migrating legacy LangChain and OpenAI imports to current APIs.
+- Adding automated tests for ingestion, retrieval, and answer quality.
+- Adding retries, validation, logging, and explicit API error handling.
+- Evaluating retrieval quality with a representative question-and-answer dataset.
+- Adding metadata filters, deduplication, and incremental indexing.
+- Separating secrets from notebooks with a secret manager.
 - Adding a web or API interface.
-- Adding evaluation datasets for retrieval and answer quality.
-- Adding metadata filters, document deduplication, and incremental indexing.
-- Moving secrets and vector storage into managed infrastructure.
-- Adding automated tests and error handling for failed downloads or API requests.
-- Replacing the legacy `openai==0.28` API usage with the current OpenAI client.
+- Applying authentication, authorization, rate limits, and cost controls.
+- Monitoring Pinecone index usage and OpenAI embedding costs.
 
 ## License
 
-No license file is currently included. Add a license before distributing or publishing the project.
+No license file is currently included. Add a license before distributing or publishing this project.
