@@ -1,25 +1,21 @@
-# ChromaDB Vector Database for GenAI
+# Vector Databases for GenAI
 
-> A practical Retrieval-Augmented Generation (RAG) notebook for searching a document collection with semantic similarity and answering questions with source citations.
+> Practical notebook examples for building semantic search systems with ChromaDB and FAISS using OpenAI embeddings.
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![LangChain](https://img.shields.io/badge/LangChain-RAG-1C3C3C?logo=chainlink&logoColor=white)
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-vector%20store-FF6B35)
+![FAISS](https://img.shields.io/badge/FAISS-similarity%20search-0467DF)
 ![OpenAI](https://img.shields.io/badge/OpenAI-embeddings%20%2B%20LLM-412991?logo=openai&logoColor=white)
 
 ## Overview
 
-This project demonstrates how to build a searchable knowledge base from text documents:
+This project contains two complementary vector-search implementations:
 
-1. Load raw article files.
-2. Split documents into overlapping chunks.
-3. Generate vector embeddings with OpenAI.
-4. Persist the embeddings in a local ChromaDB database.
-5. Retrieve the most relevant chunks for a question.
-6. Pass the retrieved context to an OpenAI language model.
-7. Return an answer together with the source documents used.
+- **ChromaDB + LangChain:** an end-to-end Retrieval-Augmented Generation (RAG) workflow that loads articles, persists embeddings, retrieves relevant context, and generates answers with source documents.
+- **FAISS + OpenAI:** a focused semantic-search example that embeds text, normalizes vectors for cosine similarity, and searches a FAISS index.
 
-The complete workflow is available in [`ChoromaDB_Vector_Database.ipynb`](./ChoromaDB_Vector_Database.ipynb).
+See [`ChoromaDB_Vector_Database.ipynb`](./ChoromaDB_Vector_Database.ipynb) and [`FAISS_Database.ipynb`](./FAISS_Database.ipynb) for the complete examples.
 
 ## Architecture
 
@@ -55,20 +51,40 @@ RetrievalQA + OpenAI LLM
 Answer + source document paths
 ```
 
+## Implementations
+
+### ChromaDB RAG pipeline
+
+The ChromaDB notebook loads `.txt` articles, splits them into 1,000-character chunks with 200-character overlap, creates OpenAI embeddings, and persists them in a local `db/` directory. A LangChain retriever then supplies relevant chunks to a `RetrievalQA` chain, which returns an answer and its source documents.
+
+### FAISS semantic search
+
+The FAISS notebook demonstrates a lightweight in-memory vector index:
+
+1. Define example text documents.
+2. Generate OpenAI embeddings with `text-embedding-ada-002`.
+3. Normalize vectors for cosine similarity.
+4. Add vectors to a `faiss.IndexFlatIP` index.
+5. Embed a query and retrieve the top two matching texts.
+
+FAISS is used here as the similarity-search engine, while the original text is kept in an `text_id_map` for lookup after searching.
+
 ## Features
 
 - **Semantic search** over document content rather than keyword-only matching.
-- **Persistent vector storage** using ChromaDB.
-- **Configurable retrieval**, including a demonstrated `k=2` result limit.
-- **Source-aware answers** through `return_source_documents=True`.
+- **Persistent vector storage** using ChromaDB and an in-memory FAISS alternative.
+- **Configurable retrieval**, including a demonstrated `k=2` result limit in both examples.
+- **Source-aware RAG answers** through `return_source_documents=True`.
+- **Cosine-similarity search** using normalized embeddings and FAISS inner product.
 - **Notebook-first learning experience** that makes each RAG step inspectable.
-- **Reusable document ingestion pattern** for additional `.txt` files.
+- **Reusable document ingestion and embedding patterns** for additional content.
 
 ## Project structure
 
 ```text
 .
 ├── ChoromaDB_Vector_Database.ipynb  # End-to-end RAG implementation
+├── FAISS_Database.ipynb             # FAISS semantic-search implementation
 ├── Vector_Database_GENAI.pdf        # Project/reference material
 ├── images/
 │   └── Screenshot 2026-11-09 162243.png  # Architecture diagram
@@ -82,6 +98,7 @@ Answer + source document paths
 - Python 3.10 or newer
 - Jupyter Notebook, JupyterLab, or Google Colab
 - An OpenAI API key
+- A C++ compiler/runtime compatible with the selected `faiss-cpu` wheel, if installing FAISS locally
 - Internet access for package installation, sample-data download, embeddings, and LLM requests
 
 ## Installation
@@ -89,19 +106,26 @@ Answer + source document paths
 Install the libraries used by the notebook:
 
 ```bash
-pip install chromadb openai langchain langchain-community tiktoken
+pip install chromadb openai langchain langchain-community tiktoken faiss-cpu numpy
 ```
 
-If you are using Google Colab, run the installation cells at the beginning of the notebook.
+The FAISS notebook uses the legacy OpenAI Python client, so its first cells install:
+
+```bash
+pip install faiss-cpu numpy openai==0.28
+```
+
+If you are using Google Colab, run the installation cells at the beginning of the notebook you want to use.
 
 ## Configuration
 
-Set the API key in the notebook before creating embeddings or querying the model:
+Set the API key in the environment before creating embeddings or querying the model:
 
 ```python
 import os
+import openai
 
-os.environ["OPENAI_API_KEY"] = "your-api-key"
+openai.api_key = os.environ["OPENAI_API_KEY"]
 ```
 
 For local development, prefer an environment variable instead of placing a real key in a notebook:
@@ -116,13 +140,14 @@ export OPENAI_API_KEY="your-api-key"
 
 Never commit API keys, generated credentials, or the ChromaDB persistence directory to source control.
 
-## Running the notebook
+## Running the notebooks
 
-1. Open [`ChoromaDB_Vector_Database.ipynb`](./ChoromaDB_Vector_Database.ipynb).
+1. Open either [`ChoromaDB_Vector_Database.ipynb`](./ChoromaDB_Vector_Database.ipynb) or [`FAISS_Database.ipynb`](./FAISS_Database.ipynb).
 2. Install the dependencies.
 3. Configure `OPENAI_API_KEY`.
 4. Run the cells from top to bottom.
-5. Ask questions using the `qa_chain` examples near the end of the notebook.
+
+For the ChromaDB notebook, ask questions using the `qa_chain` examples near the end of the notebook. For the FAISS notebook, change the `query` value and run the search cell to retrieve the most similar texts.
 
 The notebook currently uses these example questions:
 
@@ -132,6 +157,14 @@ query = "What is the news about Pando?"
 ```
 
 The response includes the generated answer and the paths of the source documents used to produce it.
+
+The FAISS example returns matching text and similarity scores:
+
+```python
+query = "What is FAISS?"
+k = 2
+distances, indices = index.search(query_vector.reshape(1, -1), k)
+```
 
 ## Core implementation
 
@@ -203,7 +236,7 @@ vectordb.persist()
 
 ## Limitations and next steps
 
-This is an educational notebook implementation, not a production service. Potential improvements include:
+These are educational notebook implementations, not production services. Potential improvements include:
 
 - Pinning dependency versions in a `requirements.txt` or `pyproject.toml`.
 - Migrating deprecated LangChain imports to the current package layout.
@@ -212,6 +245,7 @@ This is an educational notebook implementation, not a production service. Potent
 - Adding metadata filters, document deduplication, and incremental indexing.
 - Moving secrets and vector storage into managed infrastructure.
 - Adding automated tests and error handling for failed downloads or API requests.
+- Replacing the legacy `openai==0.28` API usage with the current OpenAI client.
 
 ## License
 
